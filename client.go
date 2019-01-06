@@ -1,51 +1,76 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"io"
 	"log"
+	"os"
 )
 
 func RunClient() {
-	address := ":12443"
+	address := os.Args[2]
 
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 
 	if err != nil {
 		log.Fatal("Unable to connect to GRPC server (", address, "):", err)
-	} else {
-		log.Println("Connected to GRPC server @ ", address)
 	}
+
+	md := metadata.Pairs(
+		"connect_ip", os.Args[3],
+		"connect_port", os.Args[4],
+	)
+
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	tsc := NewTunnelServiceClient(conn)
 
-	tc, err := tsc.Tunnel(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	err = tc.Send(&ChunkOrSetup{X: &ChunkOrSetup_SetupRequest{&SetupRequest{
-		Ip:   "127.0.0.1",
-		Port: 11180,
-	}}})
-
+	tc, err := tsc.Tunnel(ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	sendPacket := func(data []byte) error {
-		return tc.Send(&ChunkOrSetup{X: &ChunkOrSetup_Data{data}})
+		return tc.Send(&Chunk{Data: data})
 	}
 
-	sendPacket([]byte("GET / HTTP/1.0\r\nHost: hiber.global\r\nUser-agent: Dank-User-Agent-Erwin\r\n"))
+	go func() {
+		for {
+			chunk, err := tc.Recv()
+			if err != nil {
+				log.Println("Recv terminated:", err)
+				os.Exit(0)
+			}
 
+			os.Stdout.Write(chunk.Data)
+		}
+	}()
+
+	//sendPacket([]byte("GET / HTTP/1.0\r\nHost: hiber.global\r\nUser-agent: Dank-User-Agent-Erwin\r\n\r\n"))
+
+	r := bufio.NewReader(os.Stdin)
+	buf := make([]byte, 0, 4*1024)
 	for {
-		chunk, err := tc.Recv()
-		if err != nil {
-			log.Println("Recv terminated:", err)
-			return
+		n, err := r.Read(buf[:cap(buf)])
+		buf = buf[:n]
+		if n == 0 {
+			if err == nil {
+				continue
+			}
+			if err == io.EOF {
+				break
+			}
+			log.Fatal(err)
 		}
 
-		println(string(chunk.Data))
+		// process buf
+		if err != nil && err != io.EOF {
+			log.Fatal(err)
+		}
+
+		sendPacket(buf)
 	}
 }
