@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package main;
+
+service TunnelService {
+    rpc Tunnel (stream ChunkOrSetup) returns (stream Chunk);
+}
+
+message SetupRequest {
+    string ip = 1;
+    int32 port = 2;
+}
+
+message Chunk {
+    bytes data = 1;
+}
+
+message ChunkOrSetup {
+    oneof _ {
+        bytes data = 1;
+        // Only required for the initial packet
+        SetupRequest setup_request = 2;
+    }
+}
