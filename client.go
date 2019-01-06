@@ -49,8 +49,6 @@ func RunClient() {
 		}
 	}()
 
-	//sendPacket([]byte("GET / HTTP/1.0\r\nHost: hiber.global\r\nUser-agent: Dank-User-Agent-Erwin\r\n\r\n"))
-
 	r := bufio.NewReader(os.Stdin)
 	buf := make([]byte, 0, 4*1024)
 	for {

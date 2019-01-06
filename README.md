@@ -14,3 +14,5 @@ The client will connect to the GRPC server @ ':22223', making it connect to exam
 ```
 while true; do ncat -l 18080 -c 'go run . client :22223 example.com 80'; done
 ```
+
+Now you can browse to http://localhost:18080 and you'll see 'example.com' reporting a 404 Not Found
